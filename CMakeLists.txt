@@ -55,6 +55,7 @@ find_package(nav_msgs REQUIRED)
 find_package(pcl_ros REQUIRED)
 find_package(sensor_msgs REQUIRED)
 find_package(std_msgs REQUIRED)
+find_package(std_srvs REQUIRED)
 find_package(tf2 REQUIRED)
 find_package(tf2_geometry_msgs REQUIRED)
 find_package(visualization_msgs REQUIRED)
@@ -73,7 +74,7 @@ find_package(OpenCV REQUIRED)
 set(FLIO_INTERFACES fast_lio_interfaces)
 rosidl_generate_interfaces(${FLIO_INTERFACES}
   "msg/Pose6D.msg"
-  DEPENDENCIES builtin_interfaces std_msgs geometry_msgs
+  DEPENDENCIES builtin_interfaces std_msgs std_srvs geometry_msgs
   LIBRARY_NAME ${PROJECT_NAME}
   )
 
@@ -98,7 +99,7 @@ include_directories(
   ${FLIO_INTERFACES_INCLUDE_DIRECTORIES}
   include)
 
-ament_target_dependencies(fastlio_mapping rclcpp cv_bridge geometry_msgs image_transport livox_ros_driver2 nav_msgs pcl_ros sensor_msgs std_msgs tf2 tf2_geometry_msgs visualization_msgs)
+ament_target_dependencies(fastlio_mapping rclcpp cv_bridge geometry_msgs image_transport livox_ros_driver2 nav_msgs pcl_ros sensor_msgs std_msgs std_srvs tf2 tf2_geometry_msgs visualization_msgs)
 target_link_libraries(fastlio_mapping ${PCL_LIBRARIES} ${PYTHON_LIBRARIES} ${OpenCV_LIBRARIES})
 target_include_directories(fastlio_mapping PRIVATE ${PYTHON_INCLUDE_DIRS})
 

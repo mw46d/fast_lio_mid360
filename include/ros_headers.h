@@ -3,9 +3,12 @@
 
 #include <thread>
 #include <future>
+#include <iostream>
+#include <memory>
 
 #include <rclcpp/rclcpp.hpp>
 #include <pcl_conversions/pcl_conversions.h>
+#include <geometry_msgs/msg/vector3.hpp>
 #include <sensor_msgs/msg/point_cloud2.hpp>
 #include <sensor_msgs/msg/imu.hpp>
 #include <nav_msgs/msg/odometry.hpp>

@@ -15,10 +15,9 @@
 #include <condition_variable>
 #include <pcl/common/transforms.h>
 #include <pcl/kdtree/kdtree_flann.h>
-#include <eigen_conversions/eigen_msg.h>
-#include <pcl_conversions/pcl_conversions.h>
-#include <geometry_msgs/Vector3.h>
 #include "use-ikfom.hpp"
+
+extern shared_ptr<rclcpp::Node> node;
 
 /// *************Preconfiguration
 
@@ -224,8 +223,6 @@ void ImuProcess::UndistortPcl(const MeasureGroup &meas, esekfom::esekf<state_ikf
   const double &pcl_beg_time = meas.lidar_beg_time;
   const double &pcl_end_time = meas.lidar_end_time;
   
-  // std::cout << "times" << imu_beg_time << ", " << imu_end_time << ", " << pcl_beg_time << ", " << pcl_end_time << std::endl;
-
   /*** sort point clouds by offset time ***/
   pcl_out = *(meas.lidar);
   sort(pcl_out.points.begin(), pcl_out.points.end(), time_list);
@@ -248,9 +245,12 @@ void ImuProcess::UndistortPcl(const MeasureGroup &meas, esekfom::esekf<state_ikf
   {
     auto &&head = *(it_imu);
     auto &&tail = *(it_imu + 1);
-    
-    if (rclcpp::Time(tail->header.stamp).seconds() < last_lidar_end_time_)    continue;
-    
+
+    double tail_stamp = rclcpp::Time(tail->header.stamp).seconds();
+    double head_stamp = rclcpp::Time(head->header.stamp).seconds();
+
+    if (tail_stamp < last_lidar_end_time_)    continue;
+
     angvel_avr<<0.5 * (head->angular_velocity.x + tail->angular_velocity.x),
                 0.5 * (head->angular_velocity.y + tail->angular_velocity.y),
                 0.5 * (head->angular_velocity.z + tail->angular_velocity.z);
@@ -258,18 +258,17 @@ void ImuProcess::UndistortPcl(const MeasureGroup &meas, esekfom::esekf<state_ikf
                 0.5 * (head->linear_acceleration.y + tail->linear_acceleration.y),
                 0.5 * (head->linear_acceleration.z + tail->linear_acceleration.z);
 
-    // fout_imu << setw(10) << rclcpp::Time(head->header.stamp).seconds() - first_lidar_time << " " << angvel_avr.transpose() << " " << acc_avr.transpose() << endl;
+    // fout_imu << setw(10) << head_stamp - first_lidar_time << " " << angvel_avr.transpose() << " " << acc_avr.transpose() << endl;
 
     acc_avr     = acc_avr * G_m_s2 / mean_acc.norm(); // - state_inout.ba;
 
-    if(rclcpp::Time(head->header.stamp).seconds() < last_lidar_end_time_)
+    if(head_stamp < last_lidar_end_time_)
     {
-      dt = rclcpp::Time(tail->header.stamp).seconds() - last_lidar_end_time_;
-      // dt = rclcpp::Time(tail->header.stamp).seconds() - pcl_beg_time;
+      dt = tail_stamp - last_lidar_end_time_;
     }
     else
     {
-      dt = rclcpp::Time(tail->header.stamp).seconds() - rclcpp::Time(head->header.stamp).seconds();
+      dt = tail_stamp - head_stamp;
     }
     
     in.acc = acc_avr;
@@ -288,7 +287,7 @@ void ImuProcess::UndistortPcl(const MeasureGroup &meas, esekfom::esekf<state_ikf
     {
       acc_s_last[i] += imu_state.grav[i];
     }
-    double &&offs_t = rclcpp::Time(tail->header.stamp).seconds() - pcl_beg_time;
+    double &&offs_t = tail_stamp - pcl_beg_time;
     IMUpose.push_back(set_pose6d(offs_t, acc_s_last, angvel_last, imu_state.vel, imu_state.pos, imu_state.rot.toRotationMatrix()));
   }
 
@@ -347,7 +346,7 @@ void ImuProcess::Process(const MeasureGroup &meas,  esekfom::esekf<state_ikfom, 
   t1 = omp_get_wtime();
 
   if(meas.imu.empty()) {return;};
-  // MARCO rcpputils::assert_true(meas.lidar != nullptr);
+  assert(meas.lidar != nullptr);
 
   if (imu_need_init_)
   {
@@ -366,9 +365,9 @@ void ImuProcess::Process(const MeasureGroup &meas,  esekfom::esekf<state_ikfom, 
 
       cov_acc = cov_acc_scale;
       cov_gyr = cov_gyr_scale;
-      // MARCO RCLCPP_INFO(node->get_logger(), "IMU Initial Done");
-      // RCLCPP_INFO(node->get_logger(), "IMU Initial Done: Gravity: %.4f %.4f %.4f %.4f; state.bias_g: %.4f %.4f %.4f; acc covarience: %.8f %.8f %.8f; gry covarience: %.8f %.8f %.8f",\
-      //          imu_state.grav[0], imu_state.grav[1], imu_state.grav[2], mean_acc.norm(), cov_bias_gyr[0], cov_bias_gyr[1], cov_bias_gyr[2], cov_acc[0], cov_acc[1], cov_acc[2], cov_gyr[0], cov_gyr[1], cov_gyr[2]);
+      RCLCPP_INFO(node->get_logger(), "IMU Initial Done");
+      RCLCPP_INFO(node->get_logger(), "IMU Initial Done: Gravity: %.4f %.4f %.4f %.4f; state.bias_g: %.4f %.4f %.4f; acc covarience: %.8f %.8f %.8f; gry covarience: %.8f %.8f %.8f",\
+                 imu_state.grav[0], imu_state.grav[1], imu_state.grav[2], mean_acc.norm(), cov_bias_gyr[0], cov_bias_gyr[1], cov_bias_gyr[2], cov_acc[0], cov_acc[1], cov_acc[2], cov_gyr[0], cov_gyr[1], cov_gyr[2]);
       fout_imu.open(DEBUG_FILE_DIR("imu.txt"),ios::out);
     }
 
